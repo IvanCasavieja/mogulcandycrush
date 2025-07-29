@@ -98,6 +98,22 @@
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
             transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
+
+        .highlight img {
+            border: 3px solid #ffcc00;
+            border-radius: 10px;
+            animation: pulse 0.4s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from {
+                box-shadow: 0 0 5px #ffcc00;
+            }
+
+            to {
+                box-shadow: 0 0 15px #ffcc00;
+            }
+        }
     </style>
 </head>
 
@@ -248,17 +264,28 @@
             if (matches.length > 0) {
                 score += matches.length * 10;
                 document.getElementById("score").innerText = "Puntos: " + score;
-                matches.forEach(i => {
-                    let img = grid[i].querySelector("img");
-                    if (img) img.remove();
-                });
+
+                // Resaltar piezas
+                matches.forEach(i => grid[i].classList.add("highlight"));
+
                 setTimeout(() => {
-                    applyGravity();
-                    refillBoard();
-                    processBoard();
-                }, 300);
+                    // Partículas y eliminación
+                    matches.forEach(i => {
+                        createParticles(grid[i]);
+                        let img = grid[i].querySelector("img");
+                        if (img) img.remove();
+                        grid[i].classList.remove("highlight");
+                    });
+
+                    setTimeout(() => {
+                        applyGravity();
+                        refillBoard();
+                        processBoard();
+                    }, 300);
+                }, 400);
             }
         }
+
 
         function applyGravity() {
             for (let c = 0; c < gridSize; c++) {
@@ -308,6 +335,35 @@
                     addRandomCandy(cell);
                 }
             });
+        }
+
+        function createParticles(cell) {
+            for (let i = 0; i < 6; i++) {
+                let particle = document.createElement("div");
+                particle.style.position = "absolute";
+                particle.style.width = "5px";
+                particle.style.height = "5px";
+                particle.style.background = "#fff176";
+                particle.style.borderRadius = "50%";
+                particle.style.left = "50%";
+                particle.style.top = "50%";
+                particle.style.opacity = "1";
+                particle.style.transform = "translate(-50%, -50%)";
+                particle.style.transition = "all 0.6s ease-out";
+                cell.appendChild(particle);
+
+                // Movimiento aleatorio
+                setTimeout(() => {
+                    particle.style.left = `${Math.random() * 100}%`;
+                    particle.style.top = `${Math.random() * 100}%`;
+                    particle.style.opacity = "0";
+                }, 10);
+
+                // Borrar después de la animación
+                setTimeout(() => {
+                    particle.remove();
+                }, 600);
+            }
         }
 
         createBoard();
