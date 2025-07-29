@@ -287,6 +287,21 @@
             e.preventDefault();
         }, { passive: false });
 
+        let startY = 0;
+
+        document.getElementById("game-container").addEventListener("touchstart", e => {
+            startY = e.touches[0].clientY;
+        }, { passive: false });
+
+        document.getElementById("game-container").addEventListener("touchmove", e => {
+            let currentY = e.touches[0].clientY;
+            let deltaY = currentY - startY;
+            if (deltaY > 0) { // si intenta deslizar hacia abajo
+                e.preventDefault(); // bloquea el pull-to-refresh
+            }
+        }, { passive: false });
+
+
         function refillBoard() {
             grid.forEach(cell => {
                 if (!cell.querySelector("img")) {
