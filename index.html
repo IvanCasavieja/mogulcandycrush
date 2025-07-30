@@ -16,6 +16,8 @@
             height: 100vh;
             margin: 0;
             font-family: Arial, sans-serif;
+            position: relative;
+            overflow: hidden;
         }
 
         #score {
@@ -49,7 +51,6 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            cursor: grab;
             background: #fff5f8;
             position: relative;
             overflow: hidden;
@@ -60,19 +61,13 @@
             height: auto;
             pointer-events: none;
             user-select: none;
-            transition: transform 0.2s ease, opacity 0.3s ease, box-shadow 0.2s ease;
+            transition: transform 0.2s ease, opacity 0.3s ease;
             position: relative;
         }
 
-        .matched img {
-            opacity: 0;
-            transform: scale(0.5);
-        }
-
-        .dragging img {
-            transform: scale(1.2);
-            z-index: 1000;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
+        /* Efecto al click (achicar un poco el caramelo) */
+        .pressed img {
+            transform: scale(0.85);
         }
 
         #cta {
@@ -92,26 +87,34 @@
             background: #e33670;
         }
 
-        .dragging img {
-            transform: scale(1.3);
-            z-index: 1000;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        /* MANO TUTORIAL */
+        #tutorial-hand {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background: url('manoIcon.png') no-repeat center/contain;
+            top: 20%;
+            /* Más arriba */
+            left: 32%;
+            /* Más al centro */
+            z-index: 200;
+            animation: moveHand 2s infinite ease-in-out;
+            pointer-events: none;
+            /* Convertir a blanco con relleno simulado */
         }
 
-        .highlight img {
-            border: 3px solid #ffcc00;
-            border-radius: 10px;
-            animation: pulse 0.4s infinite alternate;
-        }
-
-        @keyframes pulse {
-            from {
-                box-shadow: 0 0 5px #ffcc00;
+        /* Movimiento entre cuadros */
+        @keyframes moveHand {
+            0% {
+                transform: translateX(0);
             }
 
-            to {
-                box-shadow: 0 0 15px #ffcc00;
+            50% {
+                transform: translateX(120px) scale(1.05);
+            }
+
+            100% {
+                transform: translateX(0);
             }
         }
     </style>
@@ -121,6 +124,7 @@
 
     <div id="score">Puntos: 0</div>
     <div id="game-container"></div>
+    <div id="tutorial-hand"></div>
     <button id="cta">Comprar Mogul</button>
 
     <script>
@@ -129,17 +133,15 @@
         let grid = [];
         let score = 0;
 
+        // Bloquear drag nativo para evitar el ghost
+        document.addEventListener("dragstart", e => e.preventDefault());
+
         // Inicialización del Enabler
         function enablerInitHandler() {
-            document.getElementById("cta").addEventListener("click", () => {
-                Enabler.exit('ClickThrough');
-            });
+            document.getElementById("cta").addEventListener("click", () => Enabler.exit('ClickThrough'));
         }
-        if (Enabler.isInitialized()) {
-            enablerInitHandler();
-        } else {
-            Enabler.addEventListener(studio.events.StudioEvent.INIT, enablerInitHandler);
-        }
+        if (Enabler.isInitialized()) enablerInitHandler();
+        else Enabler.addEventListener(studio.events.StudioEvent.INIT, enablerInitHandler);
 
         // Crear el tablero
         function createBoard() {
@@ -150,8 +152,6 @@
                 const cell = document.createElement("div");
                 cell.classList.add("cell");
                 addRandomCandy(cell);
-                cell.setAttribute("draggable", true);
-                cell.dataset.index = i;
                 container.appendChild(cell);
                 grid.push(cell);
             }
@@ -175,64 +175,9 @@
             }
         }
 
-        // Desktop Drag & Drop
-        let draggedCell = null;
-
-        document.addEventListener("dragstart", e => {
-            if (e.target.classList.contains("cell")) {
-                draggedCell = e.target;
-            } else if (e.target.tagName === "IMG") {
-                draggedCell = e.target.parentElement;
-            }
-        });
-        document.addEventListener("dragover", e => e.preventDefault());
-        document.addEventListener("drop", e => {
-            let targetCell = e.target.closest(".cell");
-            if (draggedCell && targetCell && draggedCell !== targetCell) {
-                swapCandies(draggedCell, targetCell);
-                processBoard();
-                draggedCell = null;
-            }
-        });
-
-        // Mobile Touch + Animación
-        let touchStartCell = null;
-
-        document.addEventListener("touchstart", e => {
-            let targetCell = e.target.closest(".cell");
-            if (targetCell) {
-                touchStartCell = targetCell;
-                targetCell.classList.add("dragging");
-            }
-        });
-
-        document.addEventListener("touchend", e => {
-            if (touchStartCell) touchStartCell.classList.remove("dragging");
-            let touch = e.changedTouches[0];
-            let element = document.elementFromPoint(touch.clientX, touch.clientY);
-            let targetCell = element?.closest(".cell");
-
-            if (touchStartCell && targetCell && touchStartCell !== targetCell) {
-                swapCandies(touchStartCell, targetCell);
-                processBoard();
-            }
-            touchStartCell = null;
-        });
-
-        // Funciones de juego
-        function swapCandies(a, b) {
-            const imgA = a.querySelector("img");
-            const imgB = b.querySelector("img");
-            if (imgA && imgB) {
-                const temp = imgA.src;
-                imgA.src = imgB.src;
-                imgB.src = temp;
-            }
-        }
-
+        // Detectar matches
         function findMatches() {
             let matched = [];
-            // Horizontal
             for (let r = 0; r < gridSize; r++) {
                 for (let c = 0; c < gridSize - 2; c++) {
                     let idx = r * gridSize + c;
@@ -244,7 +189,6 @@
                     }
                 }
             }
-            // Vertical
             for (let c = 0; c < gridSize; c++) {
                 for (let r = 0; r < gridSize - 2; r++) {
                     let idx = r * gridSize + c;
@@ -264,28 +208,18 @@
             if (matches.length > 0) {
                 score += matches.length * 10;
                 document.getElementById("score").innerText = "Puntos: " + score;
-
-                // Resaltar piezas
-                matches.forEach(i => grid[i].classList.add("highlight"));
-
+                matches.forEach(i => {
+                    createParticles(grid[i]);
+                    let img = grid[i].querySelector("img");
+                    if (img) img.remove();
+                });
                 setTimeout(() => {
-                    // Partículas y eliminación
-                    matches.forEach(i => {
-                        createParticles(grid[i]);
-                        let img = grid[i].querySelector("img");
-                        if (img) img.remove();
-                        grid[i].classList.remove("highlight");
-                    });
-
-                    setTimeout(() => {
-                        applyGravity();
-                        refillBoard();
-                        processBoard();
-                    }, 300);
-                }, 400);
+                    applyGravity();
+                    refillBoard();
+                    processBoard();
+                }, 300);
             }
         }
-
 
         function applyGravity() {
             for (let c = 0; c < gridSize; c++) {
@@ -309,62 +243,98 @@
             }
         }
 
-        // Evitar scroll cuando tocas dentro del tablero
-        document.getElementById("game-container").addEventListener("touchmove", e => {
-            e.preventDefault();
-        }, { passive: false });
-
-        let startY = 0;
-
-        document.getElementById("game-container").addEventListener("touchstart", e => {
-            startY = e.touches[0].clientY;
-        }, { passive: false });
-
-        document.getElementById("game-container").addEventListener("touchmove", e => {
-            let currentY = e.touches[0].clientY;
-            let deltaY = currentY - startY;
-            if (deltaY > 0) { // si intenta deslizar hacia abajo
-                e.preventDefault(); // bloquea el pull-to-refresh
-            }
-        }, { passive: false });
-
-
         function refillBoard() {
-            grid.forEach(cell => {
-                if (!cell.querySelector("img")) {
-                    addRandomCandy(cell);
-                }
-            });
+            grid.forEach(cell => { if (!cell.querySelector("img")) addRandomCandy(cell); });
         }
 
+        // Partículas
         function createParticles(cell) {
-            for (let i = 0; i < 6; i++) {
+            const colors = [
+                "#fff176", "#ff8a80", "#80d8ff", "#b9f6ca",
+                "#ff4081", "#ffea00", "#00e676", "#651fff"
+            ]; // Más colores vibrantes
+            for (let i = 0; i < 8; i++) { // un poco más de cantidad
                 let particle = document.createElement("div");
                 particle.style.position = "absolute";
-                particle.style.width = "5px";
-                particle.style.height = "5px";
-                particle.style.background = "#fff176";
+                particle.style.width = "10px";  // tamaño más grande
+                particle.style.height = "10px";
+                particle.style.background = colors[Math.floor(Math.random() * colors.length)];
                 particle.style.borderRadius = "50%";
                 particle.style.left = "50%";
                 particle.style.top = "50%";
                 particle.style.opacity = "1";
                 particle.style.transform = "translate(-50%, -50%)";
-                particle.style.transition = "all 0.6s ease-out";
+                particle.style.transition = "all 0.8s ease-out";
                 cell.appendChild(particle);
 
-                // Movimiento aleatorio
                 setTimeout(() => {
                     particle.style.left = `${Math.random() * 100}%`;
                     particle.style.top = `${Math.random() * 100}%`;
                     particle.style.opacity = "0";
                 }, 10);
 
-                // Borrar después de la animación
-                setTimeout(() => {
-                    particle.remove();
-                }, 600);
+                setTimeout(() => particle.remove(), 800);
             }
         }
+
+
+        // Drag falso (sin ghost)
+        let startCell = null;
+        document.addEventListener("mousedown", e => {
+            const cell = e.target.closest(".cell");
+            if (cell) {
+                startCell = cell;
+                cell.classList.add("pressed");
+            }
+        });
+        document.addEventListener("mouseup", e => {
+            const targetCell = e.target.closest(".cell");
+            if (startCell && targetCell && startCell !== targetCell) {
+                swapCandies(startCell, targetCell);
+                processBoard();
+            }
+            if (startCell) startCell.classList.remove("pressed");
+            startCell = null;
+        });
+
+        // Touch
+        let touchStartCell = null;
+        document.addEventListener("touchstart", e => {
+            const cell = e.target.closest(".cell");
+            if (cell) {
+                touchStartCell = cell;
+                cell.classList.add("pressed");
+            }
+        });
+        document.addEventListener("touchend", e => {
+            const touch = e.changedTouches[0];
+            const targetCell = document.elementFromPoint(touch.clientX, touch.clientY)?.closest(".cell");
+            if (touchStartCell && targetCell && touchStartCell !== targetCell) {
+                swapCandies(touchStartCell, targetCell);
+                processBoard();
+            }
+            if (touchStartCell) touchStartCell.classList.remove("pressed");
+            touchStartCell = null;
+        });
+
+        // Swap
+        function swapCandies(a, b) {
+            const imgA = a.querySelector("img");
+            const imgB = b.querySelector("img");
+            if (imgA && imgB) {
+                const temp = imgA.src;
+                imgA.src = imgB.src;
+                imgB.src = temp;
+            }
+        }
+
+        // Ocultar tutorial al primer movimiento
+        function hideTutorial() {
+            const hand = document.getElementById("tutorial-hand");
+            if (hand) hand.style.display = "none";
+        }
+        document.addEventListener("mousedown", hideTutorial, { once: true });
+        document.addEventListener("touchstart", hideTutorial, { once: true });
 
         createBoard();
     </script>
