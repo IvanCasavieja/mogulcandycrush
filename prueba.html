@@ -65,7 +65,6 @@
             position: relative;
         }
 
-        /* Efecto al click (achicar un poco el caramelo) */
         .pressed img {
             transform: scale(0.85);
         }
@@ -87,20 +86,15 @@
             background: #e33670;
         }
 
-        /* MANO TUTORIAL */
+        /* MANO TUTORIAL (ahora dentro del tablero) */
         #tutorial-hand {
             position: absolute;
             width: 80px;
             height: 80px;
             background: url('manoIcon.png') no-repeat center/contain;
-            top: 20%;
-            /* Más arriba */
-            left: 32%;
-            /* Más al centro */
             z-index: 200;
             animation: moveHand 2s infinite ease-in-out;
             pointer-events: none;
-            /* Convertir a blanco con relleno simulado */
         }
 
         /* Movimiento entre cuadros */
@@ -123,8 +117,9 @@
 <body>
 
     <div id="score">Puntos: 0</div>
-    <div id="game-container"></div>
-    <div id="tutorial-hand"></div>
+    <div id="game-container">
+        <div id="tutorial-hand"></div>
+    </div>
     <button id="cta">Comprar Mogul</button>
 
     <script>
@@ -133,10 +128,10 @@
         let grid = [];
         let score = 0;
 
-        // Bloquear drag nativo para evitar el ghost
+        // Bloquear drag nativo
         document.addEventListener("dragstart", e => e.preventDefault());
 
-        // Inicialización del Enabler
+        // Inicialización Enabler
         function enablerInitHandler() {
             document.getElementById("cta").addEventListener("click", () => Enabler.exit('ClickThrough'));
         }
@@ -146,7 +141,7 @@
         // Crear el tablero
         function createBoard() {
             const container = document.getElementById("game-container");
-            container.innerHTML = "";
+            container.querySelectorAll(".cell").forEach(c => c.remove());
             grid = [];
             for (let i = 0; i < gridSize * gridSize; i++) {
                 const cell = document.createElement("div");
@@ -156,6 +151,7 @@
                 grid.push(cell);
             }
             stabilizeBoard();
+            positionTutorialHand();
         }
 
         function addRandomCandy(cell) {
@@ -249,14 +245,11 @@
 
         // Partículas
         function createParticles(cell) {
-            const colors = [
-                "#fff176", "#ff8a80", "#80d8ff", "#b9f6ca",
-                "#ff4081", "#ffea00", "#00e676", "#651fff"
-            ]; // Más colores vibrantes
-            for (let i = 0; i < 8; i++) { // un poco más de cantidad
+            const colors = ["#fff176", "#ff8a80", "#80d8ff", "#b9f6ca", "#ff4081", "#ffea00", "#00e676", "#651fff"];
+            for (let i = 0; i < 8; i++) {
                 let particle = document.createElement("div");
                 particle.style.position = "absolute";
-                particle.style.width = "10px";  // tamaño más grande
+                particle.style.width = "10px";
                 particle.style.height = "10px";
                 particle.style.background = colors[Math.floor(Math.random() * colors.length)];
                 particle.style.borderRadius = "50%";
@@ -277,8 +270,7 @@
             }
         }
 
-
-        // Drag falso (sin ghost)
+        // Drag falso
         let startCell = null;
         document.addEventListener("mousedown", e => {
             const cell = e.target.closest(".cell");
@@ -328,6 +320,19 @@
             }
         }
 
+        // Posicionar la mano siempre relativa al tablero
+        function positionTutorialHand() {
+            const hand = document.getElementById("tutorial-hand");
+            const container = document.getElementById("game-container");
+
+            const containerRect = container.getBoundingClientRect();
+            const handWidth = hand.offsetWidth;
+            const handHeight = hand.offsetHeight;
+
+            hand.style.left = `${containerRect.width * 0.20 - handWidth / 2}px`;
+            hand.style.top = `${containerRect.height * 0.20 - handHeight / 2}px`;
+        }
+
         // Ocultar tutorial al primer movimiento
         function hideTutorial() {
             const hand = document.getElementById("tutorial-hand");
@@ -335,6 +340,9 @@
         }
         document.addEventListener("mousedown", hideTutorial, { once: true });
         document.addEventListener("touchstart", hideTutorial, { once: true });
+
+        // Recalcular posición en resize
+        window.addEventListener("resize", positionTutorialHand);
 
         createBoard();
     </script>
